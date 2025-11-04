@@ -1,0 +1,285 @@
+using System;
+using System.Collections.Generic;
+
+
+//Question 1
+namespace Project_2025
+{
+    public class q1_Book
+    {
+        public string Title { get; set; }
+        public string Author { get; set; }
+        public int Year { get; set; }
+
+        public q1_Book(string title, string author, int year)
+        {
+            Title = title;
+            Author = author;
+            Year = year;
+        }
+
+        public override string ToString() => $"{Title} by {Author} ({Year})";
+    }
+
+
+    // Each node stores a Book object, left or right children, and its height.
+    public class q1_AVLNode
+    {
+        public q1_Book Data;
+        public q1_AVLNode Left;
+        public q1_AVLNode Right;
+        public int Height;
+
+        public q1_AVLNode(q1_Book data)
+        {
+            Data = data;
+            Height = 1;
+        }
+    }
+
+    // I am implementing AVL insertion, deletion, and balancing.
+    public class q1_AVLTree
+    {
+        public q1_AVLNode Root;
+
+        private int Height(q1_AVLNode n) => n?.Height ?? 0;
+        private int Balance(q1_AVLNode n) => n == null ? 0 : Height(n.Left) - Height(n.Right);
+
+        // Right rotation
+        private q1_AVLNode RotateRight(q1_AVLNode y)
+        {
+            var x = y.Left;
+            var T2 = x.Right;
+
+            x.Right = y;
+            y.Left = T2;
+
+            y.Height = Math.Max(Height(y.Left), Height(y.Right)) + 1;
+            x.Height = Math.Max(Height(x.Left), Height(x.Right)) + 1;
+
+            return x;
+        }
+
+        // Left rotation
+        private q1_AVLNode RotateLeft(q1_AVLNode x)
+        {
+            var y = x.Right;
+            var T2 = y.Left;
+
+            y.Left = x;
+            x.Right = T2;
+
+            x.Height = Math.Max(Height(x.Left), Height(x.Right)) + 1;
+            y.Height = Math.Max(Height(y.Left), Height(y.Right)) + 1;
+
+            return y;
+        }
+
+        // Inserting node into AVL tree
+        public void Insert(q1_Book book)
+        {
+            Root = Insert(Root, book);
+        }
+
+        private q1_AVLNode Insert(q1_AVLNode node, q1_Book book)
+        {
+            if (node == null)
+                return new q1_AVLNode(book);
+
+            // Sorting by Year where left = earlier and  right = later
+            if (book.Year < node.Data.Year)
+            {
+                node.Left = Insert(node.Left, book);
+            }
+            else if (book.Year > node.Data.Year)
+            {
+                node.Right = Insert(node.Right, book);
+            }   
+            else
+            {
+                // handle duplicate years (use title as tie-breaker)
+                if (string.Compare(book.Title, node.Data.Title, true) < 0)
+                {
+                    node.Left = Insert(node.Left, book);
+                }
+                else
+                {
+                    node.Right = Insert(node.Right, book); 
+                }
+            }
+
+            // Update height
+            node.Height = 1 + Math.Max(Height(node.Left), Height(node.Right));
+
+            // Balance factor
+            int balance = Balance(node);
+
+            // Perform rotations if unbalanced
+            if (balance > 1 && book.Year < node.Left.Data.Year)
+            {
+                return RotateRight(node); 
+            }
+            if (balance < -1 && book.Year > node.Right.Data.Year)
+            {
+                return RotateLeft(node); 
+            }
+            if (balance > 1 && book.Year > node.Left.Data.Year)
+            {
+                node.Left = RotateLeft(node.Left);
+                return RotateRight(node);
+            }
+            if (balance < -1 && book.Year < node.Right.Data.Year)
+            {
+                node.Right = RotateRight(node.Right);
+                return RotateLeft(node);
+            }
+
+            return node;
+        }
+
+        /* Method that will delete books from the same year
+         Made it able to delete multiple in case there's a lot af books from the same year*/
+        
+        public void Delete(int year)
+        {
+            bool found;
+            do
+            {
+                int initialCount = CountNodes(Root);
+                Root = DeleteSingle(Root, year);
+                int finalCount = CountNodes(Root);
+                found = finalCount < initialCount; 
+            }
+            while (found);
+        }
+
+        // Functin that will delete one node for the given year (used by the loop)
+        private q1_AVLNode DeleteSingle(q1_AVLNode root, int year)
+        {
+            if (root == null) return root;
+
+            if (year < root.Data.Year)
+            {
+                root.Left = DeleteSingle(root.Left, year);
+            }
+            else if (year > root.Data.Year)
+            {
+                root.Right = DeleteSingle(root.Right, year); 
+            }
+            else
+            {
+                // Nodes that have one or no children
+                if (root.Left == null || root.Right == null)
+                {
+                    q1_AVLNode temp = root.Left ?? root.Right;
+                    if (temp == null) root = null;
+                    else root = temp;
+                }
+                else
+                {
+                    q1_AVLNode temp = MinValueNode(root.Right);
+                    root.Data = temp.Data;
+                    root.Right = DeleteSingle(root.Right, temp.Data.Year);
+                }
+            }
+
+            if (root == null)
+            {
+                return root; 
+            }
+
+            // Update height and rebalance
+            root.Height = 1 + Math.Max(Height(root.Left), Height(root.Right));
+            int balance = Balance(root);
+
+            // Balance cases
+            if (balance > 1 && Balance(root.Left) >= 0)
+            {
+                return RotateRight(root); 
+            }
+            if (balance > 1 && Balance(root.Left) < 0)
+            {
+                root.Left = RotateLeft(root.Left);
+                return RotateRight(root);
+            }
+            if (balance < -1 && Balance(root.Right) <= 0)
+            { 
+                return RotateLeft(root); 
+            }
+            if (balance < -1 && Balance(root.Right) > 0)
+            {
+                root.Right = RotateRight(root.Right);
+                return RotateLeft(root);
+            }
+
+            return root;
+        }
+
+        // Function that will help in counting nodes in the tree
+        private int CountNodes(q1_AVLNode node)
+        {
+            if (node == null) return 0;
+            return 1 + CountNodes(node.Left) + CountNodes(node.Right);
+        }
+
+        private q1_AVLNode MinValueNode(q1_AVLNode node)
+        {
+            q1_AVLNode current = node;
+            while (current.Left != null)
+                current = current.Left;
+            return current;
+        }
+
+
+        public void PrintInOrder() => PrintInOrder(Root);
+        private void PrintInOrder(q1_AVLNode node)
+        {
+            if (node == null) return;
+            PrintInOrder(node.Left);
+            Console.WriteLine(node.Data);
+            PrintInOrder(node.Right);
+        }
+    }
+
+   //Sample data given in the question
+    internal class Program
+    {
+        static void Main(string[] args)
+        {
+            q1_AVLTree tree = new q1_AVLTree();
+
+            var books = new List<q1_Book> {
+            new q1_Book("Title: The Silent Patient","author:Alex Michaelides",2019),
+            new q1_Book("Title: The Great Gatsby","author: F. Scott Fitzgerald",1925),
+            new q1_Book("Title: To Kill a Mockingbird","author: Harper Lee",1960),            
+            new q1_Book("Title: Pride and Prejudice","author: Jane Austen",1813),
+            new q1_Book("Title: Moby Dick","author: Herman Melville",1851),
+            new q1_Book("Title: 1984","author: George Orwell",1949),
+            new q1_Book("Title: The Catcher in the Rye","author:J.D. Salinger",1951),
+            new q1_Book("Title: The Hobbit","author: J.R.R. Tolkien",1937),
+            new q1_Book("Title: Brave New World", "author: Aldous Huxley",1932),
+            new q1_Book("Title: The Book Thief", "author:Markus Zusak", 2005),
+            new q1_Book("Title: The Road", "author:Cormac McCarthy", 2006),
+            new q1_Book("Title: Harry Potter and the Sorcerer's Stone", "author:J.K. Rowling", 1997),
+            new q1_Book("Title: The Girl with the Dragon Tattoo", "author:Stieg Larsson", 2005),
+            new q1_Book("Title: The Alchemist", "author:Paulo Coelho", 1960),
+            new q1_Book("Title: The Shining", "author:Stephen King", 1960),
+            new q1_Book("Title: Wuthering Heights", "author:Emily Brontë", 1847),
+            new q1_Book("Title: Catch-22", "author:Joseph Heller", 1960),
+            new q1_Book("Title: The Hunger Games", "author: Suzanne Collins", 2008),
+            new q1_Book("Title: The Da Vinci Code", "author:Dan Brown", 2003),
+            new q1_Book("Title: The Outsiders", "author:S.E. Hinton", 1960)
+        };
+
+            foreach (var b in books)
+                tree.Insert(b);
+
+            Console.WriteLine("AVL Tree (In-order Traversal):");
+            tree.PrintInOrder();
+
+            Console.WriteLine("\nDeleting the book from 1960...\n");
+            tree.Delete(1960);
+            tree.PrintInOrder();
+        }
+    }
+}
